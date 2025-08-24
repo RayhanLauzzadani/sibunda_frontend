@@ -45,4 +45,29 @@ class EditFamilyHomeVm extends AsyncAuthVm {
       }
     });
   }
+
+  /// Update an existing child profile object locally after edit (so UI refresh tanpa logout).
+  void patchChildProfileLocally({required int id, String? newName, DateTime? newBirthDate}) {
+    final current = _familyDataList.value;
+    if(current == null) return;
+    bool changed = false;
+    final updated = current.map((p){
+      if(p.id == id) {
+        var np = p;
+        if(newName != null && newName.isNotEmpty && newName != p.name) {
+          np = np.copyWithNewName(newName);
+          changed = true;
+        }
+        if(newBirthDate != null && newBirthDate != p.birthDate) {
+          np = np.copyWithNewBirthDate(newBirthDate);
+          changed = true;
+        }
+        return np;
+      }
+      return p;
+    }).toList(growable: false);
+    if(changed) {
+      _familyDataList.value = updated;
+    }
+  }
 }

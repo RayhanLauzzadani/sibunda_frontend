@@ -5,38 +5,74 @@ import 'package:json_annotation/json_annotation.dart';
 part 'child.g.dart';
 
 @JsonSerializable()
-class Child {
+class ChildRaw { // Raw response from backend; many fields nullable.
   @JsonKey(name: Const.KEY_NAME_INDO)
-  final String name;
+  final String? name;
   @JsonKey(name: Const.KEY_CHILD_ORDER)
-  final int childOrder;
+  final int? childOrder;
   @JsonKey(name: Const.KEY_BABY_GENDER)
-  final String gender; //'M' or 'F'
+  final String? gender; //'L' or 'P'
   @JsonKey(name: Const.KEY_BIRTH_CERT_NO)
-  final String birthCertificateNo;
+  final String? birthCertificateNo;
   @JsonKey(name: Const.KEY_NIK)
-  final String nik;
+  final String? nik;
   @JsonKey(name: Const.KEY_BLOOD_TYPE)
-  final String bloodType;
+  final String? bloodType;
   @JsonKey(name: Const.KEY_BIRTH_PLACE)
-  final int birthCity;
+  final int? birthCity;
   @JsonKey(name: Const.KEY_BIRTH_DATE)
-  final String birthDate;
+  final String? birthDate; // iso (yyyy-MM-dd)
   @JsonKey(name: Const.KEY_JKN)
-  final String jkn;
+  final String? jkn;
   @JsonKey(name: Const.KEY_JKN_START_DATE)
-  final String jknStartDate;
+  final String? jknStartDate;
   @JsonKey(name: Const.KEY_BABY_COHORT_REG)
-  final String babyCohortRegistNo;
+  final String? babyCohortRegistNo;
   @JsonKey(name: Const.KEY_TODDLER_COHORT_REG)
   final String? toddlerCohortRegistNo;
   @JsonKey(name: Const.KEY_HOSPITAL_MEDIC_NO)
-  final String hospitalMedicalNumber;
+  final String? hospitalMedicalNumber;
 
-  Child({
+  ChildRaw({
+    this.name,
+    this.childOrder,
+    this.gender,
+    this.birthCertificateNo,
+    this.nik,
+    this.bloodType,
+    this.birthCity,
+    this.birthDate,
+    this.jkn,
+    this.jknStartDate,
+    this.babyCohortRegistNo,
+    this.toddlerCohortRegistNo,
+    this.hospitalMedicalNumber,
+  });
+
+  factory ChildRaw.fromJson(Map<String, dynamic> json) => _$ChildRawFromJson(json);
+  Map<String, dynamic> get toJson => _$ChildRawToJson(this);
+}
+
+// Stable, non-null model for app logic/UI.
+class ChildEntity {
+  final String name;
+  final int childOrder;
+  final String gender; // 'L' or 'P'
+  final String? birthCertificateNo;
+  final String? nik;
+  final String? bloodType;
+  final int? birthCity;
+  final String birthDate; // guaranteed yyyy-MM-dd fallback
+  final String? jkn;
+  final String? jknStartDate;
+  final String? babyCohortRegistNo;
+  final String? toddlerCohortRegistNo;
+  final String? hospitalMedicalNumber;
+
+  ChildEntity({
     required this.name,
     required this.childOrder,
-    required this.gender, //'M' or 'F'
+    required this.gender,
     required this.birthCertificateNo,
     required this.nik,
     required this.bloodType,
@@ -49,22 +85,42 @@ class Child {
     required this.hospitalMedicalNumber,
   });
 
-  factory Child.from(Map<String, String> map) => Child(
-    name: map[Const.KEY_NAME]!,
-    nik: map[Const.KEY_NIK]!,
-    jkn: map[Const.KEY_JKN]!,
-    bloodType: map[Const.KEY_BLOOD_TYPE]!,
-    birthCity: int.parse(map[Const.KEY_BIRTH_PLACE]!),
-    birthDate: map[Const.KEY_BIRTH_DATE]!,
-    childOrder: int.parse(map[Const.KEY_CHILD_ORDER]!),
-    gender: map[Const.KEY_GENDER]!,
-    birthCertificateNo: map[Const.KEY_BIRTH_CERT_NO]!,
-    jknStartDate: map[Const.KEY_JKN_START_DATE]!,
-    babyCohortRegistNo: map[Const.KEY_BABY_COHORT_REG]!,
-    toddlerCohortRegistNo: map[Const.KEY_TODDLER_COHORT_REG],
-    hospitalMedicalNumber: map[Const.KEY_HOSPITAL_MEDIC_NO]!,
-  );
-
-  factory Child.fromJson(Map<String, dynamic> json) => _$ChildFromJson(json);
-  Map<String, dynamic> get toJson => _$ChildToJson(this);
+  bool get isNikEmpty => nik == null || nik!.isEmpty;
+  bool get isBirthCertEmpty => birthCertificateNo == null || birthCertificateNo!.isEmpty;
+  double get completenessRatio {
+    final total = 6; // nik, birthCert, birthCity, jkn, cohort, hospitalNumber
+    var filled = 0;
+    if(!isNikEmpty) filled++;
+    if(!isBirthCertEmpty) filled++;
+    if(birthCity != null && birthCity! > 0) filled++;
+    if(jkn != null && jkn!.isNotEmpty) filled++;
+    if(babyCohortRegistNo != null && babyCohortRegistNo!.isNotEmpty) filled++;
+    if(hospitalMedicalNumber != null && hospitalMedicalNumber!.isNotEmpty) filled++;
+    return filled / total;
+  }
 }
+
+ChildEntity mapChildRaw(ChildRaw raw) {
+  String fallbackDate(String? d) {
+    if(d == null || d.isEmpty) return DateTime.fromMillisecondsSinceEpoch(0).toIso8601String().substring(0,10);
+    return d.length >= 10 ? d.substring(0,10) : d;
+  }
+  return ChildEntity(
+    name: raw.name ?? 'Anak',
+    childOrder: raw.childOrder ?? 1,
+    gender: raw.gender ?? 'L',
+    birthCertificateNo: raw.birthCertificateNo,
+    nik: raw.nik,
+    bloodType: raw.bloodType,
+    birthCity: raw.birthCity,
+    birthDate: fallbackDate(raw.birthDate),
+    jkn: raw.jkn,
+    jknStartDate: raw.jknStartDate,
+    babyCohortRegistNo: raw.babyCohortRegistNo,
+    toddlerCohortRegistNo: raw.toddlerCohortRegistNo,
+    hospitalMedicalNumber: raw.hospitalMedicalNumber,
+  );
+}
+// Backward compatibility for code that still uses Child (deprecated)
+@deprecated
+typedef Child = ChildRaw;

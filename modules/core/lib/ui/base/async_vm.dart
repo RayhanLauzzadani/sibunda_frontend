@@ -166,6 +166,13 @@ abstract class AsyncVm extends ViewModel {
     return future;
   }
 
+  /// Check if a job with given [key] is currently running.
+  bool isJobRunning(String key) {
+    final pair = _jobMap[key];
+    if(pair == null) return false;
+    return pair.item2.value == true; // isActive flag
+  }
+
   @override
   @mustCallSuper
   void dispose() {

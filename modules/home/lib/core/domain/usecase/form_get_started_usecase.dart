@@ -4,20 +4,33 @@ import 'package:common/arch/domain/model/mother.dart';
 import 'package:common/arch/domain/repo/_repos.dart';
 import 'package:core/domain/model/result.dart';
 
+// Accept ChildEntity for saving (clean data to server) rather than raw.
 mixin SaveChildrenData {
   Future<Result<bool>> call({
-    required List<Child> data,
+    required List<ChildEntity> data,
     required String email,
     required int? pregnancyId,
   });
+}
+
+mixin UpdateChildData {
+  Future<Result<bool>> call({required int id, required Map<String, dynamic> body});
 }
 
 mixin SaveFatherData {
   Future<Result<bool>> call(Father data);
 }
 
+mixin UpdateFatherData {
+  Future<Result<bool>> call({required int id, required Map<String, dynamic> body});
+}
+
 mixin SaveMotherData {
   Future<Result<bool>> call(Mother data);
+}
+
+mixin UpdateMotherData {
+  Future<Result<bool>> call({required int id, required Map<String, dynamic> body});
 }
 
 mixin SaveMotherHpl {
@@ -47,11 +60,25 @@ class SaveFatherDataImpl with SaveFatherData {
   Future<Result<bool>> call(Father data) => repo.saveFatherData(data);
 }
 
+class UpdateFatherDataImpl with UpdateFatherData {
+  UpdateFatherDataImpl(this.repo);
+  final FatherRepo repo;
+  @override
+  Future<Result<bool>> call({required int id, required Map<String, dynamic> body}) => repo.updateFatherData(id: id, body: body);
+}
+
 class SaveMotherDataImpl with SaveMotherData {
   SaveMotherDataImpl(this.repo);
   final MotherRepo repo;
   @override
   Future<Result<bool>> call(Mother data) => repo.saveMotherData(data);
+}
+
+class UpdateMotherDataImpl with UpdateMotherData {
+  UpdateMotherDataImpl(this.repo);
+  final MotherRepo repo;
+  @override
+  Future<Result<bool>> call({required int id, required Map<String, dynamic> body}) => repo.updateMotherData(id: id, body: body);
 }
 
 class SaveMotherHplImpl with SaveMotherHpl {
@@ -76,7 +103,7 @@ class SaveChildrenDataImpl with SaveChildrenData {
   SaveChildrenDataImpl(this._repo);
   @override
   Future<Result<bool>> call({
-    required List<Child> data,
+    required List<ChildEntity> data,
     required String email,
     required int? pregnancyId,
   }) => _repo.saveChildrenData(
@@ -84,6 +111,13 @@ class SaveChildrenDataImpl with SaveChildrenData {
     email: email,
     pregnancyId: pregnancyId
   );
+}
+
+class UpdateChildDataImpl with UpdateChildData {
+  final ChildRepo _repo;
+  UpdateChildDataImpl(this._repo);
+  @override
+  Future<Result<bool>> call({required int id, required Map<String, dynamic> body}) => _repo.updateChildData(id: id, body: body);
 }
 
 class DeleteCurrentMotherHplImpl with DeleteCurrentMotherHpl {

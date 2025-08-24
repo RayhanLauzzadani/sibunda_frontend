@@ -9,9 +9,12 @@ part of 'register_api_model.dart';
 RegisterResponse _$RegisterResponseFromJson(Map<String, dynamic> json) {
   return RegisterResponse(
     message: json['message'] as String,
-    status: json['status'] as String,
     code: json['code'] as int,
-    user: UserResponse.fromJson(json['user'] as Map<String, dynamic>),
+    status: json['status'] as String?,
+    user: json['user'] == null
+        ? null
+        : UserResponse.fromJson(json['user'] as Map<String, dynamic>),
+    userId: json['userId'] as int?,
   );
 }
 
@@ -21,6 +24,7 @@ Map<String, dynamic> _$RegisterResponseToJson(RegisterResponse instance) =>
       'status': instance.status,
       'code': instance.code,
       'user': instance.user,
+      'userId': instance.userId,
     };
 
 UserResponse _$UserResponseFromJson(Map<String, dynamic> json) {

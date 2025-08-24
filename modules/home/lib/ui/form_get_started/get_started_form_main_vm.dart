@@ -21,6 +21,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:home/core/domain/usecase/_auth_usecase.dart';
 import 'package:home/core/domain/usecase/form_get_started_usecase.dart';
 import 'package:home/ui/form_get_started/child_form_vm.dart';
+import 'package:home/core/di/home_usecase_di.dart';
 import 'package:home/ui/form_get_started/do_mother_have_pregnancy_vm.dart';
 import 'package:home/ui/form_get_started/father_form_vm.dart';
 import 'package:home/ui/form_get_started/mother_form_vm.dart';
@@ -97,6 +98,22 @@ class GetStartedFormMainVm extends AsyncAuthVm {
             final configRes = await _initConfig();
             prind("GetStartedFormMainVm configRes= $configRes");
             if(configRes is Success<bool>) {
+              // After login & config, persist HPL (if provided during registration) using real usecase.
+              final hpl = _saveMotherHplForChild.data.value;
+              if(hpl != null) {
+                final motherNik = _saveMotherData.data.value?.nik; // mother form collected nik
+                if(motherNik != null && motherNik.isNotEmpty) {
+                  final hplRes = await HomeUseCaseDi.obj.saveMotherHpl(
+                    date: hpl,
+                    motherNik: motherNik,
+                  );
+                  if(hplRes is Fail<bool>) {
+                    prine('Failed saving mother HPL post-signup: ' + (hplRes.msg ?? ''));
+                  }
+                } else {
+                  prinw('HPL provided but mother NIK missing; skip saving HPL');
+                }
+              }
               _onLogin.value = configRes.data;
               return;
             } else {
@@ -166,7 +183,7 @@ class GetStartedFormMainVm extends AsyncAuthVm {
       final isFatherPresent = fatherVm.isDataPresent.value != false;
       var father = isFatherPresent ? _saveFatherData.data.value : null;
 
-      final children = _saveChildrenData.data.value;
+  final children = _saveChildrenData.data.value; // List<ChildEntity>
       prind("sendData() Current data (signup=$signup), (mother=$mother), (father=$father), (children=$children)");
 
       if(signup == null || /*mother == null || father == null ||*/ children == null) {
@@ -182,7 +199,7 @@ class GetStartedFormMainVm extends AsyncAuthVm {
         signup: signup,
         mother: mother,
         father: father,
-        children: children,
+  children: children,
         motherHpl: _saveMotherHplForChild.data.value,
       );
       prind("sendData() res1= $res1");
@@ -230,16 +247,16 @@ class _SignupImpl with SaveSignUpData {
 }
 
 class _SaveChildrenDataImpl with SaveChildrenData {
-  final MutableLiveData<List<Child>> _data = MutableLiveData([]); // default is empty, in case of child form page isn't visited at all.
-  LiveData<List<Child>> get data => _data;
+  final MutableLiveData<List<ChildEntity>> _data = MutableLiveData([]);
+  LiveData<List<ChildEntity>> get data => _data;
   @override
   Future<Result<bool>> call({
-    required List<Child> data,
+    required List<ChildEntity> data,
     required String email,
     required int? pregnancyId,
   }) async {
     _data.value = data;
-    return Success(true); // We return `Success` in intention cuz, in this context, the 'save' means save locally before collective submission in the end of get started related forms.
+    return Success(true);
   }
 }
 
@@ -277,7 +294,7 @@ class _GetMotherDataImpl with GetMotherData {
 
 class _GetChildDataImpl with GetChildData {
   @override
-  Future<Result<Child>> call(ProfileCredential credential) {
+  Future<Result<ChildEntity>> call(ProfileCredential credential) {
     throw UnimplementedError("`_GetChildDataImpl.call()` shouldn't be used");
   }
 }

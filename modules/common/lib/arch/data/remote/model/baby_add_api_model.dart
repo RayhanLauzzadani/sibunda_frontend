@@ -7,7 +7,7 @@ part 'baby_add_api_model.g.dart';
 //@freezed
 class BabyAddBody {
   final int ibu_id;
-  final Child child;
+  final ChildRaw child;
 
   const BabyAddBody({
     required this.ibu_id,
@@ -15,7 +15,7 @@ class BabyAddBody {
   });
 
   Map<String, dynamic> toJson() {
-    final childMap = child.toJson;
+  final childMap = child.toJson;
     childMap["ibu_id"] = ibu_id;
     childMap["is_janin"] = 0;
     childMap["janin_hpl"] = DateTime.fromMicrosecondsSinceEpoch(0).toString(); // Cuz, the endpoint needs it.

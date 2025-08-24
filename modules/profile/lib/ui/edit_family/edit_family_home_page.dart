@@ -90,7 +90,12 @@ class _FamilyProfileList extends StatelessWidget {
             isEdit: true,
             credential: ProfileCredential.fromProfile(profile),
           ),
-        );
+        ).then((res){
+          if(res == true) {
+            // Full refresh for mother/father (name might change & other fields)
+            ViewModelProvider.of<EditFamilyHomeVm>(context).getFamilyData(forceLoad: true);
+          }
+        });
         break;
       case 1: // for father
         ProfileRoutes.obj.goToExternalRoute(
@@ -100,7 +105,11 @@ class _FamilyProfileList extends StatelessWidget {
             isEdit: true,
             credential: ProfileCredential.fromProfile(profile),
           ),
-        );
+        ).then((res){
+          if(res == true) {
+            ViewModelProvider.of<EditFamilyHomeVm>(context).getFamilyData(forceLoad: true);
+          }
+        });
         break;
       default:
         ProfileRoutes.obj.goToExternalRouteBuilder(
@@ -109,7 +118,25 @@ class _FamilyProfileList extends StatelessWidget {
             isEdit: true,
             credential: ProfileCredential.fromProfile(profile),
           ),
-        );
+        ).then((res){
+          final vm = ViewModelProvider.of<EditFamilyHomeVm>(context);
+          if(res is Map) {
+            final id = res['id'];
+            final name = res['name'];
+            final bdStr = res['birthDate'];
+            DateTime? bd;
+            if(bdStr is String && bdStr.isNotEmpty) {
+              try { bd = DateTime.parse(bdStr.length > 10 ? bdStr.substring(0,10) : bdStr); } catch(_){ bd = null; }
+            }
+            if(id is int) {
+              vm.patchChildProfileLocally(id: id, newName: name is String ? name : null, newBirthDate: bd);
+              return;
+            }
+          }
+            if(res == true) {
+              vm.getFamilyData(forceLoad: true);
+            }
+        });
     }
   }
 }

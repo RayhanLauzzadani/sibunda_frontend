@@ -90,9 +90,17 @@ class AuthRepoImpl with AuthRepo {
       motherHpl: motherHpl,
     );
     try {
-      final res = await _api.register(body);
+      prind('[signup] sending register body keys: '+body.toJson().keys.join(','));
+      RegisterResponse res;
+  try { res = await _api.register(body); } catch(e) { return Fail(msg: 'Register failed/parsing', error: e); }
+      prind('[signup] parsed register code='+res.code.toString()+' status='+ (res.status?.toString() ?? '-') +' userId=${res.userId} hasUser=${res.user!=null}');
       if(res.code != 200) {
-        return Fail(code: res.code, msg: res.message);
+        // Mapping sederhana untuk pesan 422 agar lebih user-friendly
+        String msg = res.message;
+        if(res.code == 422 && (msg.isEmpty || msg.toLowerCase().contains('validation'))) {
+          msg = 'Data tidak valid (mungkin email sudah terpakai)';
+        }
+        return Fail(code: res.code, msg: msg);
       }
       return Success(true);
     } catch(e, stack) {

@@ -78,6 +78,15 @@ class Profile extends Equatable {
     img: img,
   );
 
+  Profile copyWithNewBirthDate(DateTime newBirthDate) => Profile(
+    id: id,
+    nik: nik,
+    name: name,
+    email: email,
+    birthDate: newBirthDate,
+    img: img,
+  );
+
   @override
   List<Object?> get props => [id, nik, name, email, birthDate, img];
 }
@@ -136,8 +145,8 @@ class BatchProfileServer with _$BatchProfileServer {
       serverId: response.id,
       name: response.nama,
       nik: response.nik,
-      birthDate: parseDate(response.tanggal_lahir),
-      birthPlace: response.tempat_lahir,
+  birthDate: tryParseDate(response.tanggal_lahir) ?? DateTime.fromMillisecondsSinceEpoch(0),
+  birthPlace: response.tempat_lahir, // biarkan apa adanya; jika null akan tertangani di layer penggunaan berikutnya
     );
     final rawFather = response.kia_ayah;
     final father = ProfileEntity(
@@ -146,21 +155,27 @@ class BatchProfileServer with _$BatchProfileServer {
       serverId: rawFather.id,
       name: rawFather.nama,
       nik: rawFather.nik,
-      birthDate: parseDate(rawFather.tanggal_lahir),
-      birthPlace: rawFather.tempat_lahir,
+  birthDate: tryParseDate(rawFather.tanggal_lahir) ?? DateTime.fromMillisecondsSinceEpoch(0),
+  birthPlace: rawFather.tempat_lahir,
     );
     Iterable<BioChildResponse> childrenItr = response.kia_anak;
     //if(filterUnbornChild) { childrenItr = childrenItr.where((e) => e.anak_ke != null); }
     final children = childrenItr.where((e) => !e.is_janin)
-        .map<ProfileEntity>((e) => ProfileEntity(
-      userId: userId,
-      type: DbConst.TYPE_CHILD,
-      serverId: e.id,
-      name: e.nama,
-      nik: e.nik!,
-      birthDate: parseDate(e.tanggal_lahir),
-      birthPlace: e.tempat_lahir!,
-    )).toList(growable: false);
+        .map<ProfileEntity>((e) {
+          // Fallback: backend bisa mengirim null untuk nik/tempat_lahir anak (terutama saat register cepat / janin transition)
+          final nik = e.nik ?? '-';
+          final birthPlace = e.tempat_lahir ?? 0; // 0 sebagai sentinel unknown
+          final birthDate = tryParseDate(e.tanggal_lahir) ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return ProfileEntity(
+            userId: userId,
+            type: DbConst.TYPE_CHILD,
+            serverId: e.id,
+            name: e.nama,
+            nik: nik,
+            birthDate: birthDate,
+            birthPlace: birthPlace,
+          );
+        }).toList(growable: false);
 
     final pregnancies = response.kia_anak.where((e) => e.hpl != null)
         .map<PregnancyEntity>((e) => PregnancyEntity(

@@ -923,10 +923,10 @@ final dummyProfileChild = ProfileEntity(
   userId: dummyCredential.id,
   type: DbConst.TYPE_CHILD,
   serverId: 3,
-  name: dummyChild.name,
-  birthDate: parseDate(dummyChild.birthDate),
+  name: dummyChild.name ?? 'Dummy Anak',
+  birthDate: parseDate(dummyChild.birthDate ?? '1970-01-01'),
   birthPlace: 1,
-  nik: dummyChild.nik,
+  nik: dummyChild.nik ?? '',
 );
 final dummyProfileChild_domain = Profile.fromEntity(
   entity: dummyProfileChild,
@@ -936,10 +936,10 @@ final dummyProfileChild2 = ProfileEntity(
   userId: dummyCredential.id,
   type: DbConst.TYPE_CHILD,
   serverId: 4,
-  name: dummyChild2.name,
-  birthDate: parseDate(dummyChild2.birthDate),
+  name: dummyChild2.name ?? 'Dummy Anak 2',
+  birthDate: parseDate(dummyChild2.birthDate ?? '1970-01-01'),
   birthPlace: 1,
-  nik: dummyChild2.nik,
+  nik: dummyChild2.nik ?? '',
 );
 final dummyProfileChild2_domain = Profile.fromEntity(
   entity: dummyProfileChild2,
@@ -949,10 +949,10 @@ final dummyProfileChild3 = ProfileEntity(
   userId: dummyCredential.id,
   type: DbConst.TYPE_CHILD,
   serverId: 5,
-  name: dummyChild3.name,
-  birthDate: parseDate(dummyChild3.birthDate),
+  name: dummyChild3.name ?? 'Dummy Anak 3',
+  birthDate: parseDate(dummyChild3.birthDate ?? '1970-01-01'),
   birthPlace: 1,
-  nik: dummyChild3.nik,
+  nik: dummyChild3.nik ?? '',
 );
 final dummyProfileChild3_domain = Profile.fromEntity(
   entity: dummyProfileChild3,
@@ -962,10 +962,10 @@ final dummyProfileChild4 = ProfileEntity(
   userId: dummyCredential.id,
   type: DbConst.TYPE_CHILD,
   serverId: 6,
-  name: dummyChild4.name,
-  birthDate: parseDate(dummyChild4.birthDate),
+  name: dummyChild4.name ?? 'Dummy Anak 4',
+  birthDate: parseDate(dummyChild4.birthDate ?? '1970-01-01'),
   birthPlace: 1,
-  nik: dummyChild4.nik,
+  nik: dummyChild4.nik ?? '',
 );
 final dummyProfileChild4_domain = Profile.fromEntity(
   entity: dummyProfileChild4,

@@ -24,10 +24,12 @@ class FatherFormVm extends FormAuthVmGroup {
   FatherFormVm({
     BuildContext? context,
     required SaveFatherData saveFatherData,
+  UpdateFatherData? updateFatherData,
     required GetFatherData getFatherData,
     required GetCityById getCityById,
   }):
     _saveFatherData = saveFatherData,
+  _updateFatherData = updateFatherData,
     _getFatherData = getFatherData,
     _getCityById = getCityById, super(context: context,)
   {
@@ -50,6 +52,7 @@ class FatherFormVm extends FormAuthVmGroup {
     }, tag: toString());
   }
   final SaveFatherData _saveFatherData;
+  final UpdateFatherData? _updateFatherData;
   final GetFatherData _getFatherData;
   final GetCityById _getCityById;
 
@@ -58,6 +61,8 @@ class FatherFormVm extends FormAuthVmGroup {
   final _fatherData = MutableLiveData<Father>();
 
   ProfileCredential? _credential;
+  bool _isEdit = false;
+  Father? _originalData;
 
   @override
   List<LiveData> get liveDatas => [imgProfile, isDataPresent, _fatherData];
@@ -87,8 +92,37 @@ class FatherFormVm extends FormAuthVmGroup {
   @override
   Future<Result<String>> doSubmitJob() async {
     final txtMap = getResponseMap();
-    final data = Father.fromJson(txtMap);
-    return await _saveFatherData(data).then<Result<String>>((value) => value is Success ? Success("") : value as Fail<String>);
+    if(_isEdit && _credential != null && _updateFatherData != null) {
+      final diff = <String, dynamic>{};
+      final newMap = Map<String,dynamic>.from(txtMap);
+      final old = _originalData?.toJson;
+      newMap.forEach((k,v) { if(v != null && (old == null || old[k] != v)) diff[k] = v; });
+      if(diff.isEmpty) return Success("no_changes");
+      final body = <String,dynamic>{};
+      void put(String backendKey, String frontKey){ if(diff.containsKey(frontKey)) body[backendKey] = diff[frontKey]; }
+      put('nama', Const.KEY_NAME_INDO); put('nama', Const.KEY_NAME);
+      put('nik', Const.KEY_NIK);
+      put('gol_darah', Const.KEY_BLOOD_TYPE);
+      put('tempat_lahir', Const.KEY_BIRTH_PLACE);
+      put('tanggal_lahir', Const.KEY_BIRTH_DATE);
+      put('pendidikan','pendidikan');
+      put('pekerjaan','pekerjaan');
+      put('alamat_rumah','alamat_rumah');
+      put('telp','telp');
+      put('no_jkn', Const.KEY_JKN);
+      put('pembiayaan','pembiayaan');
+      put('faskes_tk1','faskes_tk1');
+      put('faskes_rujukan','faskes_rujukan');
+      if(body['tanggal_lahir'] is String && (body['tanggal_lahir'] as String).length >= 10) {
+        body['tanggal_lahir'] = (body['tanggal_lahir'] as String).substring(0,10);
+      }
+      final res = await _updateFatherData!(id: _credential!.id, body: body);
+      if(res is Success<bool>) return Success("");
+      final f = res as Fail<bool>; return Fail<String>(code: f.code, msg: f.msg, error: f.error, stack: f.stack);
+    } else {
+      final data = Father.fromJson(txtMap);
+      return await _saveFatherData(data).then<Result<String>>((value) => value is Success ? Success("") : value as Fail<String>);
+    }
   }
 
   @override
@@ -118,6 +152,8 @@ class FatherFormVm extends FormAuthVmGroup {
       if(res is Success<Father>) {
         _fatherData.value = res.data;
         _credential = credential;
+  _originalData = res.data;
+  _isEdit = true;
       } else {
         return res as Fail;
       }

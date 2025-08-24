@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:common/arch/data/local/dao/account_dao.dart';
 import 'package:common/arch/data/local/dao/pregnancy_dao.dart';
+import 'package:moor/moor.dart' show Value; // for updating companion
 import 'package:common/arch/data/local/db/app_db.dart';
 import 'package:common/arch/data/local/source/pregnancy_local_source.dart';
 import 'package:common/arch/domain/dummy_data.dart';
@@ -27,7 +28,7 @@ mixin AccountLocalSrc {
     required SignUpData signup,
     required Mother mother,
     required Father father,
-    required List<Child> children,
+  required List<Child> children,
     //required List<DateTime> motherHpl,
     required BatchProfileIds ids,
   });
@@ -65,6 +66,13 @@ mixin AccountLocalSrc {
   Future<Result<bool>> saveCurrentEmail(String email);
   Future<Result<String>> getCurrentEmail();
   Future<Result<bool>> deleteCurrentEmail();
+  Future<Result<bool>> updateProfileMeta({
+    required int serverId,
+    String? name,
+    String? birthDateIso,
+    int? birthPlace,
+    String? email, // optional: update credential email too
+  });
 
   Future<Result<bool>> saveCurrentPswd(String password);
   /// Check if [password] is same as saved in local.
@@ -127,15 +135,31 @@ class AccountLocalSrcImpl with AccountLocalSrc {
       serverId: ids.fatherId,
     );
     final childProfs = List<ProfileEntity>.generate(children.length, (i) {
-      final child = children[i];
+      final raw = children[i];
+      // raw may be ChildRaw (typedef Child=ChildRaw). Map to entity for fallbacks.
+      final entity = mapChildRaw(raw is ChildRaw ? raw : ChildRaw(
+        name: raw.name,
+        childOrder: raw.childOrder,
+        gender: raw.gender,
+        birthCertificateNo: raw.birthCertificateNo,
+        nik: raw.nik,
+        bloodType: raw.bloodType,
+        birthCity: raw.birthCity,
+        birthDate: raw.birthDate,
+        jkn: raw.jkn,
+        jknStartDate: raw.jknStartDate,
+        babyCohortRegistNo: raw.babyCohortRegistNo,
+        toddlerCohortRegistNo: raw.toddlerCohortRegistNo,
+        hospitalMedicalNumber: raw.hospitalMedicalNumber,
+      ));
       final id = ids.childrenId[i];
       return ProfileEntity(
         userId: userId,
         type: DbConst.TYPE_CHILD,
-        name: child.name,
-        nik: child.nik,
-        birthDate: DateTime.parse(child.birthDate),
-        birthPlace: child.birthCity,
+        name: entity.name,
+        nik: entity.nik ?? '',
+        birthDate: DateTime.tryParse(entity.birthDate) ?? DateTime.fromMillisecondsSinceEpoch(0),
+        birthPlace: entity.birthCity ?? 0,
         serverId: id,
       );
     });
@@ -477,6 +501,49 @@ class AccountLocalSrcImpl with AccountLocalSrc {
       return Success(res);
     } catch(e) {
       return Fail();
+    }
+  }
+
+  @override
+  Future<Result<bool>> updateProfileMeta({
+    required int serverId,
+    String? name,
+    String? birthDateIso,
+    int? birthPlace,
+    String? email,
+  }) async {
+    try {
+      if(name == null && birthDateIso == null && birthPlace == null && email == null) {
+        return Success(true);
+      }
+      if(name != null || birthDateIso != null || birthPlace != null) {
+        await _profileDao.updateProfileMeta(
+          serverId: serverId,
+          name: name,
+          birthDateIso: birthDateIso,
+          birthPlace: birthPlace,
+        );
+      }
+      if(email != null) {
+        final prof = await _profileDao.getByServerId(serverId);
+        if(prof != null) {
+          final cred = await _credentialDao.getById(prof.userId);
+          if(cred != null) {
+            await ( _credentialDao.update(_credentialDao.credentialEntities)
+              ..where((tbl) => tbl.id.equals(cred.id))
+            ).write(
+              CredentialEntitiesCompanion(email: Value(email)),
+            );
+            await saveCurrentEmail(email);
+          }
+        }
+      }
+      return Success(true);
+    } catch(e, stack) {
+      final msg = "Error calling updateProfileMeta()";
+      prine(msg);
+      prine(stack);
+      return Fail(msg: msg, error: e, stack: stack);
     }
   }
 

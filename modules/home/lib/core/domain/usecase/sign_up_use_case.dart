@@ -9,12 +9,13 @@ mixin SaveSignUpData {
   Future<Result<bool>> call(SignUpData data);
 }
 
+// Use ChildEntity for stable non-null data during signup.
 mixin SignUpAndRegisterOtherData {
   Future<Result<bool>> call({
     required SignUpData signup,
     required Mother? mother,
     required Father? father,
-    required List<Child> children,
+    required List<ChildEntity> children,
     required DateTime? motherHpl,
   });
 }
@@ -35,10 +36,25 @@ class SignUpAndRegisterOtherDataImpl with SignUpAndRegisterOtherData {
     required SignUpData signup,
     required Mother? mother,
     required Father? father,
-    required List<Child> children,
+    required List<ChildEntity> children,
     required DateTime? motherHpl,
   }) => _repo.signup(
     signup: signup, mother: mother, father: father,
-    children: children, motherHpl: motherHpl,
+    children: children.map((e) => ChildRaw(
+      name: e.name,
+      childOrder: e.childOrder,
+      gender: e.gender,
+      birthCertificateNo: e.birthCertificateNo,
+      nik: e.nik,
+      bloodType: e.bloodType,
+      birthCity: e.birthCity,
+      birthDate: e.birthDate,
+      jkn: e.jkn,
+      jknStartDate: e.jknStartDate,
+      babyCohortRegistNo: e.babyCohortRegistNo,
+      toddlerCohortRegistNo: e.toddlerCohortRegistNo,
+      hospitalMedicalNumber: e.hospitalMedicalNumber,
+    )).toList(),
+    motherHpl: motherHpl,
   );
 }

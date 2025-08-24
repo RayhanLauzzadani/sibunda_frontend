@@ -1,5 +1,6 @@
 import 'package:common/arch/data/local/db/app_db.dart';
 import 'package:common/arch/data/local/source/account_local_source.dart';
+import 'package:common/arch/data/local/dao/account_dao.dart';
 import 'package:common/arch/data/local/source/pregnancy_local_source.dart';
 import 'package:common/arch/data/remote/api/data_api.dart';
 import 'package:common/arch/data/remote/model/baby_add_api_model.dart';
@@ -21,6 +22,7 @@ mixin MotherRepo {
   Future<Result<String>> getMotherNik();
   Future<Result<Mother>> getMotherData(ProfileCredential credential);
   Future<Result<bool>> saveMotherData(Mother data);
+  Future<Result<bool>> updateMotherData({required int id, required Map<String, dynamic> body});
 
   //Future<Result<List<MotherHomeData>>> getMotherHomeData();
 
@@ -49,15 +51,18 @@ class MotherRepoImpl with MotherRepo {
   final DataApi _dataApi;
   final AccountLocalSrc _accountLocalSrc;
   final PregnancyLocalSrc _pregnancyLocalSrc;
+  final ProfileDao _profileDao;
 
   MotherRepoImpl({
     required DataApi dataApi,
     required AccountLocalSrc accountLocalSrc,
     required PregnancyLocalSrc pregnancyLocalSrc,
+    required ProfileDao profileDao,
   }):
     _dataApi = dataApi,
     _accountLocalSrc = accountLocalSrc,
-    _pregnancyLocalSrc = pregnancyLocalSrc
+    _pregnancyLocalSrc = pregnancyLocalSrc,
+    _profileDao = profileDao
   ;
 
   @override
@@ -89,18 +94,19 @@ class MotherRepoImpl with MotherRepo {
     }
   }
   /*
-  async {
-    final map = dummyMother.toJson;
-    final res = await _accountLocalSrc.getProfileByNik(credential.nik, type: DbConst.TYPE_MOTHER);
-    if(res is Success<ProfileEntity>) {
-      final prof = res.data;
-      map[Const.KEY_NAME_INDO] = prof.name;
-      map[Const.KEY_NIK] = prof.nik;
-      map[Const.KEY_BIRTH_DATE] = prof.birthDate.toString();
-      map[Const.KEY_BIRTH_PLACE] = prof.birthPlace;
-      final mother = Mother.fromJson(map);
-      return Success(mother);
-    } else {
+      try {
+        final name = body['nama'];
+        final bd = body['tanggal_lahir'];
+        final bp = body['tempat_lahir'];
+        if(name != null || bd != null || bp != null) {
+          await _profileDao.updateProfileMeta(
+            serverId: id,
+            name: name is String && name.isNotEmpty ? name : null,
+            birthDateIso: bd is String ? bd : null,
+            birthPlace: (bp is int) ? bp : (bp is String ? int.tryParse(bp) : null),
+          );
+        }
+      } catch(e,_) { prinw('Failed syncing local mother meta (non-fatal): $e'); }
       return Fail();
     }
   }
@@ -108,6 +114,33 @@ class MotherRepoImpl with MotherRepo {
 
   @override @mayChangeInFuture
   Future<Result<bool>> saveMotherData(Mother data) async => Success(true);
+  @override
+  Future<Result<bool>> updateMotherData({required int id, required Map<String, dynamic> body}) async {
+    try {
+      final res = await _dataApi.updateMother(id, body);
+      if(res.code != 200) return Fail(msg: 'Failed updating mother with id $id', code: res.code);
+      // Sync local cache (name, birth date, birth place) if present in body.
+      try {
+        final name = body['nama'];
+        final bd = body['tanggal_lahir'];
+        final bp = body['tempat_lahir'];
+        if(name != null || bd != null || bp != null) {
+          await _accountLocalSrc.updateProfileMeta(
+            serverId: id,
+            name: (name is String && name.isNotEmpty) ? name : null,
+            birthDateIso: bd is String ? bd : null,
+            birthPlace: (bp is int) ? bp : (bp is String ? int.tryParse(bp) : null),
+          );
+        }
+      } catch(e,_) { prinw('Failed syncing local mother meta (non-fatal): $e'); }
+      return Success(true);
+    } catch(e, stack) {
+      final msg = 'Error calling updateMotherData';
+      prine('$msg; e= $e');
+      prine(stack);
+      return Fail(msg: msg, error: e, stack: stack);
+    }
+  }
 
   @override
   Future<Result<bool>> saveMotherHpl({
@@ -194,6 +227,8 @@ class MotherRepoDummy with MotherRepo {
   Future<Result<Mother>> getMotherData(ProfileCredential credential) async => Success(dummyMother);
   @override
   Future<Result<bool>> saveMotherData(Mother data) async => Success(true);
+  @override
+  Future<Result<bool>> updateMotherData({required int id, required Map<String, dynamic> body}) async => Success(true);
 /*
   @override
   Future<Result<List<MotherHomeData>>> getMotherHomeData() async => Success(motherHomeData);

@@ -17,8 +17,11 @@ abstract class HomeUseCaseDiObj {
   //Logout get logout => LogoutImpl(RepoDi.authRepo);
   SaveMotherData get saveMotherData;
   SaveFatherData get saveFatherData;
+  UpdateMotherData get updateMotherData;
+  UpdateFatherData get updateFatherData;
   //SaveChildData get saveChildData => SaveChildDataImpl(RepoDi.childRepo);
   SaveChildrenData get saveChildrenData;
+  UpdateChildData get updateChildData;
   SaveMotherHpl get saveMotherHpl;
   DeleteCurrentMotherHpl get deleteCurrentMotherHpl;
   //SaveLastChildBirthDate get saveLastChildBirthDate => SaveLastChildBirthDateImpl(RepoDi.childRepo);
@@ -43,9 +46,15 @@ class HomeUseCaseDiObjImpl extends HomeUseCaseDiObj {
   SaveMotherData get saveMotherData => SaveMotherDataImpl(RepoDi.obj.motherRepo);
   @override
   SaveFatherData get saveFatherData => SaveFatherDataImpl(RepoDi.obj.fatherRepo);
+  @override
+  UpdateMotherData get updateMotherData => UpdateMotherDataImpl(RepoDi.obj.motherRepo);
+  @override
+  UpdateFatherData get updateFatherData => UpdateFatherDataImpl(RepoDi.obj.fatherRepo);
   //SaveChildData get saveChildData => SaveChildDataImpl(RepoDi.childRepo);
   @override
   SaveChildrenData get saveChildrenData => SaveChildrenDataImpl(RepoDi.obj.childRepo);
+  @override
+  UpdateChildData get updateChildData => UpdateChildDataImpl(RepoDi.obj.childRepo);
   @override
   SaveMotherHpl get saveMotherHpl => SaveMotherHplImpl(RepoDi.obj.motherRepo);
   @override

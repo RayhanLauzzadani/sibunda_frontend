@@ -50,7 +50,17 @@ class _ProfileEditPageRoute {
     ]),
   ));
 
-  void go(BuildContext context, Profile data) {
-    _route.goToPage(context, args: { Const.KEY_DATA: data });
+  Future<T?> go<T>(BuildContext context, Profile data) {
+    return _route.goToPage<T>(context, args: { Const.KEY_DATA: data });
+  }
+
+  Widget buildWithArgs(Profile data) {
+    // Fallback: Use existing route go() (non-awaitable) – this builder returns standard page without args.
+    // Caller should pass args via route go(); for awaiting result we won't support custom builder now.
+    return MainFrame(
+      body: ProfileEditPage().inVmProvider([
+            (ctx) => ProfileVmDi.obj.profileEditVm(context: ctx),
+      ]),
+    );
   }
 }

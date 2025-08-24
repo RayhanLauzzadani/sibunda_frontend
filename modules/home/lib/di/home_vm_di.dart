@@ -85,6 +85,7 @@ class HomeVmDiObjImpl extends HomeVmDiObj {
   }) => MotherFormVm(
     context: context,
     saveMotherData: HomeUseCaseDi.obj.saveMotherData,
+  updateMotherData: HomeUseCaseDi.obj.updateMotherData,
     getMotherData: UseCaseDi.obj.getMotherData,
     getCityById: UseCaseDi.obj.getCityById,
   );
@@ -94,6 +95,7 @@ class HomeVmDiObjImpl extends HomeVmDiObj {
   }) => FatherFormVm(
     context: context,
     saveFatherData: HomeUseCaseDi.obj.saveFatherData,
+  updateFatherData: HomeUseCaseDi.obj.updateFatherData,
     getFatherData: UseCaseDi.obj.getFatherData,
     getCityById: UseCaseDi.obj.getCityById,
   );
@@ -126,6 +128,7 @@ class HomeVmDiObjImpl extends HomeVmDiObj {
     getCurrentEmail: UseCaseDi.obj.getCurrentEmail,
     childCount: childCount ?? MutableLiveData(1),
     saveChildrenData: HomeUseCaseDi.obj.saveChildrenData,
+  updateChildData: HomeUseCaseDi.obj.updateChildData,
     getChildData: UseCaseDi.obj.getChildData,
     getCityById: UseCaseDi.obj.getCityById,
   );

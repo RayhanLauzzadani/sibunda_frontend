@@ -14,8 +14,9 @@ mixin GetFatherData {
   Future<Result<Father>> call(ProfileCredential credential);
 }
 
+// Return ChildEntity to expose stable non-null data shape.
 mixin GetChildData {
-  Future<Result<Child>> call(ProfileCredential credential);
+  Future<Result<ChildEntity>> call(ProfileCredential credential);
 }
 
 
@@ -37,5 +38,5 @@ class GetChildDataImpl with GetChildData {
   final ChildRepo _repo;
   GetChildDataImpl(this._repo);
   @override
-  Future<Result<Child>> call(ProfileCredential credential) => _repo.getChildData(credential);
+  Future<Result<ChildEntity>> call(ProfileCredential credential) => _repo.getChildData(credential);
 }

@@ -44,7 +44,8 @@ class ChildFormPage extends StatelessWidget {
     final isEdit = getArgs<bool>(context, Const.KEY_IS_EDIT) == true;
 
     final vm = ViewModelProvider.of<ChildFormVm>(context)
-      ..getChildData(credential: credential,)
+      // Force reload when editing so form always reflects latest backend data.
+      ..getChildData(credential: credential, forceLoad: isEdit)
       //..childCount.value = childCount
 /*
       ..onActiveInParent = () {
@@ -52,6 +53,10 @@ class ChildFormPage extends StatelessWidget {
       }
  */
       ..onSaveBatch.observeForever((canProceed) {
+        // NOTE: Saat mode edit anak, navigasi & result dikendalikan khusus
+        // di _ChildSingleFormPage (mengembalikan {id, name}) agar parent
+        // bisa patch nama secara lokal tanpa reload penuh.
+        if(isEdit) return; // Jangan auto-pop di mode edit.
         if(canProceed == true) {
           if(!onlySinglePage) {
             if(pageControll != null) {
@@ -66,7 +71,6 @@ class ChildFormPage extends StatelessWidget {
           } else {
             backPage(context, result: true);
           }
-          //nestedPageControll?.value = null;
         }
       });
 
@@ -148,7 +152,9 @@ class _ChildSingleFormPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
+      children: [
+        Column(
       children: [
         Text(
           (!isEdit ? Strings.fill_child_data : Strings.edit_child_data) +"\n(${page+1})",
@@ -207,15 +213,41 @@ class _ChildSingleFormPage extends StatelessWidget {
           onSubmit: (ctx, success) {
             prind("page < vm.childCount.value! -1 success= $success page= $page vm.currentPage= ${vm.currentPage} vm.childCount= ${vm.childCount}");
             if(success) {
-              //showSnackBar(context, "Berhasil", backgroundColor: Colors.green);
-              if(vm.currentPage.value! < vm.childCount.value! -1) { // It should be impossible to be null cuz off course if null, then this `_ChildSingleFormPage` won't be built.
-                innerPageControll.animateToPage(
-                  innerPageControll.page!.toInt() +1,
-                  duration: Duration(milliseconds: 600,),
-                  curve: Curves.easeOut,
-                );
-              } else {
+              if(isEdit) {
+                // Ambil nama baru dari form sebelum request update jalan.
+                final respMap = vm.getResponseMap();
+                final newName = (respMap[Const.KEY_NAME_INDO] ?? respMap[Const.KEY_NAME])?.toString();
+                // Ambil tanggal lahir (DateTime atau String) dan normalisasi yyyy-MM-dd
+                final bdObj = respMap[Const.KEY_BIRTH_DATE];
+                String? birthDateStr;
+                if(bdObj is DateTime) {
+                  birthDateStr = bdObj.toIso8601String().substring(0,10);
+                } else if(bdObj is String && bdObj.isNotEmpty) {
+                  birthDateStr = bdObj.length >= 10 ? bdObj.substring(0,10) : bdObj;
+                }
+                // Observer sekali saja untuk menunggu sukses update.
+                void onceObserver(bool? v) {
+                  if(v == true) {
+                    vm.onSaveBatch.removeObserver(onceObserver);
+                    backPage(context, result: {
+                      'id': vm.currentCredentialId,
+                      'name': newName,
+                      if(birthDateStr != null) 'birthDate': birthDateStr,
+                    });
+                  }
+                }
+                vm.onSaveBatch.observeForever(onceObserver);
                 vm.saveBatchChildren();
+              } else {
+                if(vm.currentPage.value! < vm.childCount.value! -1) { // It should be impossible to be null cuz off course if null, then this `_ChildSingleFormPage` won't be built.
+                  innerPageControll.animateToPage(
+                    innerPageControll.page!.toInt() +1,
+                    duration: Duration(milliseconds: 600,),
+                    curve: Curves.easeOut,
+                  );
+                } else {
+                  vm.saveBatchChildren();
+                }
               }
 /*
               // It has been handled in parent page by observing `onSaveBatch`.
@@ -246,6 +278,9 @@ class _ChildSingleFormPage extends StatelessWidget {
           ),
         ),
       ],
-    ).insideScroll();
+    ).insideScroll(),
+        // Overlay dihapus agar konsisten dengan form ibu/ayah (hanya loader di posisi tombol).
+      ],
+    );
   }
 }

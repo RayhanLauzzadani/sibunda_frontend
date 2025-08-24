@@ -10,6 +10,7 @@ import '../dummy_data.dart';
 mixin FatherRepo {
   Future<Result<Father>> getFatherData(ProfileCredential credential);
   Future<Result<bool>> saveFatherData(Father data);
+  Future<Result<bool>> updateFatherData({required int id, required Map<String, dynamic> body});
 }
 
 class FatherRepoImpl with FatherRepo {
@@ -40,6 +41,19 @@ class FatherRepoImpl with FatherRepo {
   }
   @override
   Future<Result<bool>> saveFatherData(Father data) async => Success(true);
+  @override
+  Future<Result<bool>> updateFatherData({required int id, required Map<String, dynamic> body}) async {
+    try {
+      final res = await _dataApi.updateFather(id, body);
+      if(res.code != 200) return Fail(msg: 'Failed updating father with id $id', code: res.code);
+      return Success(true);
+    } catch(e, stack) {
+      final msg = 'Error calling updateFatherData';
+      prine('$msg; e= $e');
+      prine(stack);
+      return Fail(msg: msg, error: e, stack: stack);
+    }
+  }
 }
 
 class FatherRepoDummy with FatherRepo {
@@ -50,4 +64,6 @@ class FatherRepoDummy with FatherRepo {
   Future<Result<Father>> getFatherData(ProfileCredential credential) async => Success(dummyFather);
   @override
   Future<Result<bool>> saveFatherData(Father data) async => Success(true);
+  @override
+  Future<Result<bool>> updateFatherData({required int id, required Map<String, dynamic> body}) async => Success(true);
 }

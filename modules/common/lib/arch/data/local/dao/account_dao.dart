@@ -183,4 +183,30 @@ class ProfileDao extends DatabaseAccessor<AppDatabase> with _$ProfileDaoMixin {
     }
     return res;
   }
+
+  Future<int> updateChildName({required int serverId, required String newName}) async {
+    return (update(profileEntities)..where((tbl) => tbl.serverId.equals(serverId)))
+        .write(ProfileEntitiesCompanion(name: Value(newName)));
+  }
+
+  Future<int> updateProfileMeta({
+    required int serverId,
+    String? name,
+    String? birthDateIso, // expected yyyy-MM-dd
+    int? birthPlace,
+  }) async {
+    DateTime? bd;
+    if(birthDateIso != null) {
+      var s = birthDateIso;
+      if(s.length > 10) s = s.substring(0,10);
+      try { bd = DateTime.tryParse(s); } catch(_){ bd = null; }
+    }
+    final companion = ProfileEntitiesCompanion(
+      name: name != null ? Value(name) : const Value.absent(),
+      birthDate: bd != null ? Value(bd) : const Value.absent(),
+      birthPlace: birthPlace != null ? Value(birthPlace) : const Value.absent(),
+    );
+  if(companion == ProfileEntitiesCompanion()) return 0; // nothing to update
+    return (update(profileEntities)..where((tbl) => tbl.serverId.equals(serverId))).write(companion);
+  }
 }

@@ -63,12 +63,49 @@ class ProfileRepoImpl with ProfileRepo {
         name: data.name,
         password: data.pswd,
       );
+      prind("[saveProfile] Payload: { name: "+data.name+", email: "+data.email+", password: "+(data.pswd ?? "<null>")+" }");
       final res = await _dataApi.saveProfile(body);
+      prind("[saveProfile] Response: code="+res.code.toString()+", message="+res.message.toString());
       if(res.code != 200) {
         final msg = "Can't save edited profile";
         prine("$msg; res= $res");
         return Fail(msg: "$msg; res = ${res.message}", code: res.code);
       }
+      // Sync local cache (name/email) using any existing profile (prefer mother) for serverId reference.
+      try {
+        // We only have email to locate profiles; update credential + active email.
+        // Find current email stored locally (before change) for mapping.
+        final currEmailRes = await _localSrc.getCurrentEmail();
+        if(currEmailRes is Success<String>) {
+          final prevEmail = currEmailRes.data;
+          // Grab family profile to find mother serverId (primary profile)
+          final famRes = await _localSrc.getFamilyProfile(prevEmail);
+          int? serverId;
+          if(famRes is Success<Map<int, List<Profile>>>) {
+            final fam = famRes.data;
+            final mothers = fam[DbConst.TYPE_MOTHER];
+            if(mothers != null && mothers.isNotEmpty) {
+              serverId = mothers.first.id; // Profile.id assumed serverId
+            }
+          }
+          // Fallback: single profile fetch
+            if(serverId == null) {
+              final profRes = await _localSrc.getProfile(prevEmail);
+              if(profRes is Success<Profile>) {
+                serverId = profRes.data.id;
+              }
+            }
+          if(serverId != null) {
+            await _localSrc.updateProfileMeta(
+              serverId: serverId,
+              name: (data.name.isNotEmpty) ? data.name : null,
+              email: data.email != prevEmail ? data.email : null,
+            );
+          } else {
+            prinw('ProfileRepo.saveProfile(): Unable to resolve serverId for local sync');
+          }
+        }
+      } catch(e,_) { prinw('Non-fatal: failed syncing local after profile save: $e'); }
       return Success(true);
     } catch(e, stack) {
       final msg = "Error calling `saveProfile()`";

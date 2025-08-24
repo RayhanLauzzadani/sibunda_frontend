@@ -26,10 +26,12 @@ class MotherFormVm extends FormAuthVmGroup {
   MotherFormVm({
     BuildContext? context,
     required SaveMotherData saveMotherData,
+  UpdateMotherData? updateMotherData,
     required GetMotherData getMotherData,
     required GetCityById getCityById,
   }):
     _saveMotherData = saveMotherData,
+  _updateMotherData = updateMotherData,
     _getMotherData = getMotherData,
     _getCityById = getCityById, super(context: context,)
   {
@@ -52,6 +54,7 @@ class MotherFormVm extends FormAuthVmGroup {
     }, tag: toString());
   }
   final SaveMotherData _saveMotherData;
+  final UpdateMotherData? _updateMotherData;
   final GetMotherData _getMotherData;
   final GetCityById _getCityById;
 
@@ -60,6 +63,8 @@ class MotherFormVm extends FormAuthVmGroup {
   final _motherData = MutableLiveData<Mother>();
 
   ProfileCredential? _credential;
+  bool _isEdit = false;
+  Mother? _originalData;
 
   @override
   List<LiveData> get liveDatas => [imgProfile, isDataPresent, _motherData];
@@ -90,8 +95,50 @@ class MotherFormVm extends FormAuthVmGroup {
   Future<Result<String>> doSubmitJob() async {
     final txtMap = getResponseMap();
     prind("MotherFormVm txtMap = $txtMap");
-    final data = Mother.fromJson(txtMap);
-    return await _saveMotherData(data).then<Result<String>>((value) => value is Success ? Success("") : value as Fail<String>);
+    if(_isEdit && _credential != null && _updateMotherData != null) {
+      final diff = <String, dynamic>{};
+      final newMap = Map<String,dynamic>.from(txtMap);
+      final old = _originalData?.toJson;
+      newMap.forEach((k,v) { if(v != null && (old == null || old[k] != v)) diff[k] = v; });
+      if(diff.isEmpty) return Success("no_changes");
+      final body = <String,dynamic>{};
+      void put(String backendKey, String frontKey){ if(diff.containsKey(frontKey)) body[backendKey] = diff[frontKey]; }
+      put('nama', Const.KEY_NAME_INDO); put('nama', Const.KEY_NAME);
+      put('nik', Const.KEY_NIK);
+      put('gol_darah', Const.KEY_BLOOD_TYPE);
+      put('tempat_lahir', Const.KEY_BIRTH_PLACE);
+      put('tanggal_lahir', Const.KEY_BIRTH_DATE);
+      put('pendidikan','pendidikan');
+      put('pekerjaan','pekerjaan');
+      put('alamat_rumah','alamat_rumah');
+      put('telp','telp');
+      put('no_jkn', Const.KEY_JKN);
+      put('pembiayaan','pembiayaan');
+      put('faskes_tk1','faskes_tk1');
+      put('faskes_rujukan','faskes_rujukan');
+      put('puskesmas_domisili','puskesmas_domisili');
+      put('nomor_register_kohort_ibu','nomor_register_kohort_ibu');
+      if(body['tanggal_lahir'] is String && (body['tanggal_lahir'] as String).length >= 10) {
+        body['tanggal_lahir'] = (body['tanggal_lahir'] as String).substring(0,10);
+      }
+      final res = await _updateMotherData!(id: _credential!.id, body: body);
+      if(res is Success<bool>) {
+        // Optimistic local refresh: apply changed fields to current LiveData so UI updates immediately.
+        if(_motherData.value != null) {
+          final curr = _motherData.value!;
+          final json = curr.toJson;
+          body.forEach((k,v) { json[k] = v; });
+          final patched = Mother.fromJson(json);
+          _motherData.value = patched;
+          _originalData = patched;
+        }
+        return Success("");
+      }
+      final f = res as Fail<bool>; return Fail<String>(code: f.code, msg: f.msg, error: f.error, stack: f.stack);
+    } else {
+      final data = Mother.fromJson(txtMap);
+      return await _saveMotherData(data).then<Result<String>>((value) => value is Success ? Success("") : value as Fail<String>);
+    }
   }
 
   @override
@@ -121,6 +168,8 @@ class MotherFormVm extends FormAuthVmGroup {
       if(res is Success<Mother>) {
         _motherData.value = res.data;
         _credential = credential;
+  _originalData = res.data;
+  _isEdit = true;
       } else {
         return res as Fail;
       }

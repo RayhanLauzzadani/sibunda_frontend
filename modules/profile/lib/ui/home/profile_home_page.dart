@@ -14,6 +14,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:profile/config/profile_routes.dart';
 import 'package:profile/ui/home/profile_home_vm.dart';
+import 'package:profile/ui/edit/profile_edit_page.dart';
+import 'package:profile/di/profile_vm_di.dart';
 
 
 class ProfileHomePage extends StatelessWidget {
@@ -93,14 +95,24 @@ class _MenuList extends StatelessWidget {
     return Column(
       children: [
         InkWell(
-          onTap: () => ProfileRoutes.profileEditPage.go(context, profile),
+              onTap: () async {
+                final res = await ProfileRoutes.profileEditPage.go(context, profile);
+                if(res == true) {
+                  ViewModelProvider.of<ProfileHomeVm>(context).getProfile(forceLoad: true);
+                }
+              },
           child: ListTile(
             leading: SibImages.get("ic_profile_sm.png", package: "common"),
             title: Text("Edit Profil"),
           ),
         ),
         InkWell(
-          onTap: () => ProfileRoutes.familyEditPage.goToPage(context),
+          onTap: () async {
+            final res = await ProfileRoutes.familyEditPage.goToPage(context);
+            if(res == true) {
+              ViewModelProvider.of<ProfileHomeVm>(context).getProfile(forceLoad: true);
+            }
+          },
           child: ListTile(
             leading: SibImages.get("ic_wallet.png", package: "common"),
             title: Text("Edit Data Keluarga"),

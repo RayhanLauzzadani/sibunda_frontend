@@ -32,6 +32,7 @@ class ChildFormVm extends FormAuthVmGroup {
     BuildContext? context,
     //required SaveChildData saveChildData,
     required SaveChildrenData saveChildrenData,
+  UpdateChildData? updateChildData,
     required GetCurrentEmail getCurrentEmail,
     required GetChildData getChildData,
     required GetCityById getCityById,
@@ -40,6 +41,7 @@ class ChildFormVm extends FormAuthVmGroup {
   }):
     //_saveChildData = saveChildData,
     _saveChildrenData = saveChildrenData,
+  _updateChildData = updateChildData,
     _getCurrentEmail = getCurrentEmail,
     _getChildData = getChildData,
     _getCityById = getCityById, super(context: context)
@@ -106,6 +108,7 @@ class ChildFormVm extends FormAuthVmGroup {
   }
   //final SaveChildData _saveChildData; //Now, we use `SaveChildrenData` for batch saving
   final SaveChildrenData _saveChildrenData;
+  final UpdateChildData? _updateChildData;
   final GetCurrentEmail _getCurrentEmail;
   final GetChildData _getChildData;
   final GetCityById _getCityById;
@@ -126,21 +129,56 @@ class ChildFormVm extends FormAuthVmGroup {
   final MutableLiveData<List<IdStringModel?>> _birthPlaces = MutableLiveData();
 
   final MutableLiveData<Child> _currentChild = MutableLiveData();
+  // Helper snapshot getter used by UI after update.
+  Child? get currentChildSnapshot => _currentChild.value;
+  int? get currentCredentialId => _currentCredential?.id;
 
   final MutableLiveData<bool> _onSaveBatch = MutableLiveData(false);
   LiveData<bool> get onSaveBatch => _onSaveBatch;
 
+  // Flag loading khusus proses update / simpan anak
+  final MutableLiveData<bool> _isUpdatingChild = MutableLiveData(false);
+  LiveData<bool> get isUpdatingChild => _isUpdatingChild;
+
   final imgProfile = MutableLiveData<ImgData>();
+
+  /// True bila ada perubahan field dibanding data asli saat mode edit.
+  bool get hasEditChanges {
+    if(!_isEdit) return true; // for create mode always treat as changed when valid
+    if(_originalChild == null) return false;
+    try {
+      final txtMap = getResponseMap();
+      final old = _originalChild!.toJson;
+      for(final e in txtMap.entries) {
+        final k = e.key;
+        final v = e.value;
+        if(v != null && old[k] != v) return true;
+      }
+    } catch(_) {}
+    return false;
+  }
 
   //LiveData<List<Child>> get children => _children;
 
   ProfileCredential? _currentCredential;
+  bool _isEdit = false;
+  Child? _originalChild;
 
   @override
   List<LiveData> get liveDatas => [
     _currentPage, _children, _onSaveBatch, imgProfile,
-    _currentChild,
+  _currentChild, _isUpdatingChild,
   ];
+
+  // Convenience single-fire observer
+  void observeOnce<T>(LiveData<T> live, void Function(T? v) onData) {
+    void Function(T?)? sub;
+    sub = (v){
+      onData(v);
+      live.removeObserver(sub!);
+    };
+    live.observeForever(sub);
+  }
 
 
   bool checkPageActiveInParent(int page, { bool force = false }) {
@@ -206,9 +244,11 @@ class ChildFormVm extends FormAuthVmGroup {
       return Success("ok");
     }
     try {
-      final txtMap = getResponseMap();
-      final data = Child.fromJson(txtMap);
-      _children.value![_currentPage.value!] = data;
+  final txtMap = getResponseMap();
+  // Parse as raw (nullable) then map to entity to avoid crash on null fields
+  final dataRaw = ChildRaw.fromJson(txtMap);
+  final data = mapChildRaw(dataRaw);
+  _children.value![_currentPage.value!] = dataRaw; // keep raw list for backward; entity could be stored elsewhere if needed
       _birthPlaces.value![_currentPage.value!] = responseGroupList[0][Const.KEY_BIRTH_PLACE]!.response.value as IdStringModel?;
       //final res = await _saveChildData(data, _currentPage.value!); //.then<Result<String>>((value) => );
       return Success("ok");
@@ -256,6 +296,61 @@ class ChildFormVm extends FormAuthVmGroup {
 
   void saveBatchChildren() {
     prind("ChildFormVm.saveBatchChildren() pregnancyId= $pregnancyId");
+    if(_isEdit && _currentCredential != null && _updateChildData != null) {
+      try {
+        final txtMap = getResponseMap();
+        final diff = <String,dynamic>{};
+        final old = _originalChild?.toJson;
+        txtMap.forEach((k,v){ if(v != null && (old == null || old[k] != v)) diff[k]=v; });
+  if(diff.isEmpty) { _onSaveBatch.value = true; return; }
+
+        // Map frontend keys -> backend expected keys
+        final body = <String,dynamic>{};
+        void put(String backendKey, String frontKey){ if(diff.containsKey(frontKey)) body[backendKey] = diff[frontKey]; }
+        put('nama', Const.KEY_NAME_INDO); // or KEY_NAME_INDO
+        put('nama', Const.KEY_NAME); // fallback if form uses generic key
+        put('anak_ke', Const.KEY_CHILD_ORDER);
+        put('no_akte_kelahiran', Const.KEY_BIRTH_CERT_NO);
+        put('nik', Const.KEY_NIK);
+        put('gol_darah', Const.KEY_BLOOD_TYPE);
+        put('tempat_lahir', Const.KEY_BIRTH_PLACE);
+        put('tanggal_lahir', Const.KEY_BIRTH_DATE);
+        put('no_jkn', Const.KEY_JKN);
+        put('tanggal_berlaku_jkn', Const.KEY_JKN_START_DATE);
+        put('no_kohort', Const.KEY_BABY_COHORT_REG);
+        put('no_catatan_medik', Const.KEY_HOSPITAL_MEDIC_NO);
+        // gender conversion
+        String? g = diff[Const.KEY_BABY_GENDER] ?? diff[Const.KEY_GENDER];
+        if(g != null) {
+          g = g.toUpperCase();
+          // Backend expects L / P
+            if(g == 'M') g = 'L';
+            else if(g == 'F') g = 'P';
+          body['jenis_kelamin'] = g;
+        }
+        // Normalize dates to yyyy-MM-dd
+        void norm(String k){
+          final val = body[k];
+          if(val is String && val.length >= 10) body[k] = val.substring(0,10);
+        }
+        norm('tanggal_lahir');
+        norm('tanggal_berlaku_jkn');
+        if(body.isEmpty) { _onSaveBatch.value = true; return; }
+        _isUpdatingChild.value = true;
+        startJob(saveBatchChildrenKey, (isActive) async {
+          prind('[ChildFormVm] updateChild body=$body');
+          final res = await _updateChildData!(id: _currentCredential!.id, body: body);
+          if(res is Success<bool>) {
+            _onSaveBatch.value = true;
+            _isUpdatingChild.value = false;
+            return null;
+          }
+          _isUpdatingChild.value = false;
+          return res as Fail;
+        });
+        return;
+      } catch(e, stack) { prine(e); prine(stack); _onSaveBatch.value = false; _isUpdatingChild.value = false; return; }
+    }
     if(_currentPage.value != childCount.value! -1) {
       throw "`currentPage` is '${_currentPage.value}' and total children count (`pageCount`) is '$childCount'.\n"
             "There are still some `Child`s with no data.\n"
@@ -264,26 +359,30 @@ class ChildFormVm extends FormAuthVmGroup {
     if(_children.value!.any((e) => e == null)) {
       throw "`_children.value` can't have any null value";
     }
-    startJob(saveBatchChildrenKey, (isActive) async {
+  _isUpdatingChild.value = true;
+  startJob(saveBatchChildrenKey, (isActive) async {
       final emailRes = await _getCurrentEmail();
       Fail? fail;
       if(emailRes is Success<String>) {
         final email = emailRes.data;
-        final newList = _children.value!.map<Child>((e) => e!).toList(growable: false);
+        final rawList = _children.value!.map<ChildRaw>((e) => e!).toList(growable: false);
+        final entityList = rawList.map(mapChildRaw).toList(growable: false);
         final res = await _saveChildrenData(
-          data: newList,
+          data: entityList,
           email: email,
           pregnancyId: pregnancyId?.id,
         );
         if(res is Success<bool>) {
           _onSaveBatch.value = res.data;
-          return null;
+      _isUpdatingChild.value = false;
+      return null;
         }
         fail = (res as Fail<bool>);
       } else {
         fail = (emailRes as Fail<String>);
       }
-      return fail;
+    _isUpdatingChild.value = false;
+    return fail;
     });
   }
 
@@ -298,9 +397,27 @@ class ChildFormVm extends FormAuthVmGroup {
     }
     startJob(getChildDataKey, (isActive) async {
       final res = await _getChildData(credential);
-      if(res is Success<Child>) {
-        _currentChild.value = res.data;
+      if(res is Success<ChildEntity>) {
+        final ent = res.data;
+        final raw = ChildRaw(
+          name: ent.name,
+          childOrder: ent.childOrder,
+          gender: ent.gender,
+          birthCertificateNo: ent.birthCertificateNo,
+          nik: ent.nik,
+          bloodType: ent.bloodType,
+          birthCity: ent.birthCity,
+          birthDate: ent.birthDate,
+          jkn: ent.jkn,
+          jknStartDate: ent.jknStartDate,
+          babyCohortRegistNo: ent.babyCohortRegistNo,
+          toddlerCohortRegistNo: ent.toddlerCohortRegistNo,
+          hospitalMedicalNumber: ent.hospitalMedicalNumber,
+        );
+        _currentChild.value = raw;
         _currentCredential = credential;
+  _originalChild = raw;
+  _isEdit = true;
       } else {
         return res as Fail;
       }

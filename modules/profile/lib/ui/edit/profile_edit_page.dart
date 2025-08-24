@@ -1,3 +1,4 @@
+import 'package:profile/ui/home/profile_home_vm.dart';
 import 'package:common/arch/domain/model/img_data.dart';
 import 'package:common/arch/domain/model/profile_data.dart';
 import 'package:common/arch/ui/page/secondary_frames.dart';
@@ -17,13 +18,16 @@ import 'package:profile/ui/edit/profile_edit_vm.dart';
 
 // ignore: must_be_immutable
 class ProfileEditPage extends StatelessWidget {
+  final Profile? initialProfile;
+  ProfileEditPage({Key? key, this.initialProfile}) : super(key: key);
+
   late void Function(bool?) _onChange;
 
   @override
   Widget build(BuildContext context) {
-    final profile = getArgs<Profile>(context, Const.KEY_DATA);
+    final profile = initialProfile ?? getArgs<Profile>(context, Const.KEY_DATA);
     if(profile == null) {
-      throw "$runtimeType needs `Profile` argument";
+      throw "$runtimeType needs `Profile` argument or initialProfile";
     }
 
     final vm = ViewModelProvider.of<ProfileEditVm>(context);
@@ -77,9 +81,14 @@ class ProfileEditPage extends StatelessWidget {
                     );
                   }
                 },
-                onSubmit: (ctx, success) => success
-                    ? showSnackBar(context, Strings.form_submission_success, backgroundColor: Colors.green,)
-                    :  showSnackBar(context, Strings.form_submission_fail,),
+                onSubmit: (ctx, success) {
+                  if(success) {
+                    showSnackBar(context, Strings.form_submission_success, backgroundColor: Colors.green,);
+                    Navigator.pop(context, true);
+                  } else {
+                    showSnackBar(context, Strings.form_submission_fail,);
+                  }
+                },
                 submitBtnBuilder: (ctx, canProceed) => TxtBtn(
                   "Update Profil Saya",
                   color: canProceed == true ? Manifest.theme.colorPrimary : grey,

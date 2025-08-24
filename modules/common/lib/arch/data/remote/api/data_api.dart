@@ -23,6 +23,13 @@ abstract class DataApi {
   Future<BabyAddResponse> createChild(@Body() BabyAddBody body);
   @POST("/identitas-anak")
   Future<BabyAddResponse> createFetus(@Body() FetusAddBody body);
+  // Update endpoints (RESTful PUT with id path params)
+  @PUT("/identitas-ibu/{id}")
+  Future<CommonResponse> updateMother(@Path("id") int id, @Body() Map<String, dynamic> body);
+  @PUT("/identitas-ayah/{id}")
+  Future<CommonResponse> updateFather(@Path("id") int id, @Body() Map<String, dynamic> body);
+  @PUT("/identitas-anak/{id}")
+  Future<CommonResponse> updateChild(@Path("id") int id, @Body() Map<String, dynamic> body);
   @PUT("/save-profile")
   Future<CommonResponse> saveProfile(@Body() SaveProfileBody body);
 }

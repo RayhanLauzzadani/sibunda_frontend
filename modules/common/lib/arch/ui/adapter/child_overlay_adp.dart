@@ -76,9 +76,10 @@ class _ChildrenListOverlayState extends State<ChildrenListOverlay> {
             selectedIndex: selectedIndex,
             dataList: unbornBabyList,
             datePrefix: "${Strings.hpl}: ",
-            addItemStr: Strings.add_pregnancy,
-            onAddItemClick: onAddItemClick != null ? () {
-              onAddItemClick!(false);
+            // Hide add button if there is already an active (unborn) pregnancy
+            addItemStr: unbornBabyList.isEmpty ? Strings.add_pregnancy : null,
+            onAddItemClick: (onAddItemClick != null && unbornBabyList.isEmpty) ? () {
+              onAddItemClick!(false); // false => unborn context
             } : null,
             onItemClick: onItemClick != null
                 ? (data) => onItemClick!.call(data, false)

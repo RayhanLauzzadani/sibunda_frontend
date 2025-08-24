@@ -140,12 +140,23 @@ class ProfileEditVm extends FormAuthVmGroup {
     );
     final String? oldPswd = respMap[Const.KEY_OLD_PSWD];
     final res = await _saveProfile(data, oldPswd);
-    if(res is Fail<bool>) {
-      _oldPswdCode.value = res.code;
-    } else {
+    if(res is Success<bool>) {
       _oldPswdCode.value = Const.CODE_OK;
+      _currentName = data.name;
+      _currentEmail = data.email;
+      _isCurrentlyEdited = false;
+      return Success("ok");
+    } else {
+      _oldPswdCode.value = res is Fail<bool> ? res.code : Const.CODE_NOT_OK;
+      String? failMsg;
+      if(res is Fail) {
+        // ignore: invalid_use_of_protected_member
+        failMsg = (res as dynamic).msg ?? "Gagal menyimpan perubahan profil";
+      } else {
+        failMsg = "Gagal menyimpan perubahan profil";
+      }
+      return Fail<String>(msg: failMsg);
     }
-    return res is Success<bool> ? Success("ok") : Fail();
   }
 
   @override
