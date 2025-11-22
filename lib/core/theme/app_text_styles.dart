@@ -116,4 +116,33 @@ class AppTextStyles {
   );
 
   static TextStyle get inputError => sizeMin1.copyWith(color: AppColors.error);
+
+  // ========================================
+  // HOME PAGE STYLES (matching repo lama)
+  // ========================================
+  static TextStyle get size0Bold => size0.copyWith(fontWeight: FontWeight.bold);
+
+  static TextStyle get size0BoldColorPrimary => size0.copyWith(
+    fontWeight: FontWeight.bold,
+    color: AppColors.primary,
+  );
+
+  static TextStyle get sizeMin1BoldColorPrimary => sizeMin1.copyWith(
+    fontWeight: FontWeight.bold,
+    color: AppColors.primary,
+  );
+
+  static TextStyle get sizeMin1ColorPrimary => sizeMin1.copyWith(
+    color: AppColors.primary,
+  );
+
+  static TextStyle get sizeMin2ColorPrimary => sizeMin2.copyWith(
+    color: AppColors.primary,
+  );
+
+  static TextStyle get sizePlus2ColorOnPrimary => TextStyle(
+    fontSize: 19,
+    fontWeight: FontWeight.bold,
+    color: AppColors.white,
+  );
 }
