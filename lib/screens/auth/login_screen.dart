@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:email_validator/email_validator.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/custom_button.dart';
-import '../../core/widgets/custom_textfield.dart';
-import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../routes/app_router.dart';
 
@@ -16,10 +15,15 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isPasswordVisible = false;
+
+  // _isInit untuk tidak menampilkan error sebelum user mulai input
+  bool _isEmailInit = true;
+  bool _isPasswordInit = true;
+
+  String? _emailError;
+  String? _passwordError;
 
   @override
   void dispose() {
@@ -28,41 +32,65 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
-    // Clear any previous errors
-    ref.read(authControllerProvider.notifier).clearError();
+  void _validateEmail(String value) {
+    setState(() {
+      _isEmailInit = false;
+      if (value.isEmpty) {
+        _emailError = 'Isian tidak boleh kosong';
+      } else if (!EmailValidator.validate(value)) {
+        _emailError = 'Mohon masukan email yang benar';
+      } else {
+        _emailError = null;
+      }
+    });
+  }
 
-    // Validate form
-    if (!_formKey.currentState!.validate()) {
+  void _validatePassword(String value) {
+    setState(() {
+      _isPasswordInit = false;
+      if (value.isEmpty) {
+        _passwordError = 'Isian tidak boleh kosong';
+      } else {
+        _passwordError = null;
+      }
+    });
+  }
+
+  bool get _canProceed {
+    return _emailError == null &&
+           _passwordError == null &&
+           !_isEmailInit &&
+           !_isPasswordInit &&
+           _emailController.text.isNotEmpty &&
+           _passwordController.text.isNotEmpty;
+  }
+
+  Future<void> _handleLogin() async {
+    // Validate all fields first
+    _validateEmail(_emailController.text);
+    _validatePassword(_passwordController.text);
+
+    if (!_canProceed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ada yang belum valid')),
+      );
       return;
     }
 
-    // Attempt login
     final success = await ref.read(authControllerProvider.notifier).signIn(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
 
     if (!mounted) return;
 
     if (success) {
-      // Navigation handled by router redirect
       context.go(AppRoutes.home);
     } else {
-      // Error is already set in the state, will be displayed in UI
-      _showErrorSnackBar();
-    }
-  }
-
-  void _showErrorSnackBar() {
-    final error = ref.read(authErrorProvider);
-    if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor: AppTheme.errorColor,
-          behavior: SnackBarBehavior.floating,
-        ),
+      Fluttertoast.showToast(
+        msg: 'Email atau password salah',
+        toastLength: Toast.LENGTH_LONG,
+        backgroundColor: Colors.red,
       );
     }
   }
@@ -71,185 +99,201 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final isLoading = authState.isLoading;
-    final errorMessage = authState.errorMessage;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 60),
-
-                // Logo
-                Center(
-                  child: Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: AppColors.pink300.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.favorite,
-                      size: 60,
-                      color: AppColors.pink300,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 40),
-
-                // Welcome text
-                Text(
-                  'Selamat Datang Bunda',
-                  style: AppTheme.textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                Text(
-                  'Masuk untuk melanjutkan',
-                  style: AppTheme.textTheme.bodyLarge?.copyWith(
-                    color: AppColors.grey,
-                  ),
-                ),
-
-                const SizedBox(height: 40),
-
-                // Email field
-                CustomTextField(
-                  controller: _emailController,
-                  label: 'Email',
-                  hintText: 'Masukkan email Anda',
-                  keyboardType: TextInputType.emailAddress,
-                  prefixIcon: Icons.email_outlined,
-                  validator: Validators.email,
-                  enabled: !isLoading,
-                  textInputAction: TextInputAction.next,
-                ),
-
-                const SizedBox(height: 16),
-
-                // Password field
-                CustomTextField(
-                  controller: _passwordController,
-                  label: 'Password',
-                  hintText: 'Masukkan password Anda',
-                  obscureText: !_isPasswordVisible,
-                  prefixIcon: Icons.lock_outline,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _isPasswordVisible
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isPasswordVisible = !_isPasswordVisible;
-                      });
-                    },
-                  ),
-                  validator: (value) => Validators.required(value, fieldName: 'Password'),
-                  enabled: !isLoading,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _handleLogin(),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Error message
-                if (errorMessage != null)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.error_outline, color: Colors.red.shade700),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            errorMessage,
-                            style: TextStyle(
-                              color: Colors.red.shade700,
-                              fontSize: 14,
-                            ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              // Logo dan Header
+              Container(
+                alignment: Alignment.centerLeft,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Logo
+                    Container(
+                      margin: const EdgeInsets.only(top: 60),
+                      child: Image.asset(
+                        'assets/images/logo_app_color.png',
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.contain,
+                        errorBuilder: (ctx, err, stack) => Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: AppColors.pink300.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.favorite,
+                            size: 50,
+                            color: AppColors.pink300,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-
-                // Login button
-                CustomButton(
-                  text: 'Masuk',
-                  onPressed: isLoading ? null : _handleLogin,
-                  isLoading: isLoading,
-                  icon: Icons.arrow_forward_rounded,
-                ),
-
-                const SizedBox(height: 16),
-
-                // Forgot password
-                Center(
-                  child: CustomTextButton(
-                    text: 'Lupa Password?',
-                    onPressed: isLoading
-                        ? null
-                        : () {
-                            // TODO: Implement forgot password
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Fitur lupa password akan segera hadir'),
-                              ),
-                            );
-                          },
-                    textColor: AppTheme.primaryColor,
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                // Register link
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Bunda belum punya akun?',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 14,
                       ),
                     ),
-                    CustomTextButton(
-                      text: 'Daftar Disini Yuk',
-                      onPressed: isLoading
-                          ? null
-                          : () {
-                              context.push(AppRoutes.register);
-                            },
+                    // Welcome text
+                    Container(
+                      margin: const EdgeInsets.only(top: 60),
+                      child: Text(
+                        'Selamat Datang Bunda',
+                        style: SibTextStyles.header1,
+                      ),
                     ),
                   ],
                 ),
+              ),
 
-                const SizedBox(height: 20),
-              ],
-            ),
+              // Form Fields
+              Column(
+                children: [
+                  // Email field
+                  Container(
+                    margin: const EdgeInsets.all(10),
+                    child: TextField(
+                      controller: _emailController,
+                      enabled: !isLoading,
+                      keyboardType: TextInputType.emailAddress,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      onChanged: _validateEmail,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: const BorderSide(width: 2),
+                        ),
+                        errorText: _isEmailInit ? null : _emailError,
+                        labelText: 'Email',
+                        hintText: 'Email',
+                      ),
+                    ),
+                  ),
+
+                  // Password field
+                  Container(
+                    margin: const EdgeInsets.all(10),
+                    child: TextField(
+                      controller: _passwordController,
+                      enabled: !isLoading,
+                      obscureText: true,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      onChanged: _validatePassword,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: const BorderSide(width: 2),
+                        ),
+                        errorText: _isPasswordInit ? null : _passwordError,
+                        labelText: 'Password',
+                        hintText: 'Password',
+                      ),
+                    ),
+                  ),
+
+                  // Submit Button (FAB like repo lama)
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    child: FloatingActionButton(
+                      backgroundColor: _canProceed ? AppColors.pink300 : AppColors.grey,
+                      onPressed: isLoading
+                          ? null
+                          : (_canProceed ? _handleLogin : () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Ada yang belum valid')),
+                              );
+                            }),
+                      child: isLoading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.arrow_forward_rounded),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Error message area (like repo lama's LiveDataObserver)
+              authState.errorMessage != null
+                  ? Container(
+                      margin: const EdgeInsets.all(10),
+                      child: Text(
+                        authState.errorMessage!,
+                        style: SibTextStyles.size_0.copyWith(color: Colors.red),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+
+              // Register link section
+              Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 30),
+                    child: Text(
+                      'Bunda belum punya akun?',
+                      style: SibTextStyles.regular_grey,
+                    ),
+                  ),
+                  Container(
+                    margin: const EdgeInsets.only(top: 10),
+                    child: InkWell(
+                      onTap: isLoading ? null : () => context.push(AppRoutes.register),
+                      child: Text(
+                        'Daftar Disini Yuk',
+                        style: SibTextStyles.regular_colorPrimary,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+// Text styles yang match dengan repo lama (fonts.dart)
+class SibTextStyles {
+  static TextStyle header1 = const TextStyle(
+    fontSize: 25,
+    fontWeight: FontWeight.bold,
+    color: Colors.black,
+  );
+
+  static TextStyle size_0 = const TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.normal,
+    color: Colors.black,
+  );
+
+  static TextStyle regular_grey = const TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.normal,
+    color: AppColors.grey,
+  );
+
+  static TextStyle regular_colorPrimary = const TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.normal,
+    color: AppColors.pink300,
+  );
+
+  static TextStyle default_ = const TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.normal,
+    color: Colors.black,
+  );
 }
