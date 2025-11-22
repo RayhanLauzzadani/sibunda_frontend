@@ -1,102 +1,148 @@
+import '../constants/string_constants.dart';
+
+/// ========================================
+/// VALIDATORS - SiBunda Form Validators
+/// Centralized validation logic
+/// ========================================
 class Validators {
-  // Email validator
+  Validators._();
+
+  // ========================================
+  // CONSTANTS
+  // ========================================
+  static const int minPasswordLength = 6;
+  static const int minNameLength = 3;
+
+  // Email regex pattern
+  static final RegExp _emailRegex = RegExp(
+    r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+  );
+
+  // Name regex (letters, spaces, apostrophes, hyphens)
+  static final RegExp _nameRegex = RegExp(r"^[a-zA-Z\s'\-]+$");
+
+  // Phone regex (Indonesia format)
+  static final RegExp _phoneRegex = RegExp(r'^(\+62|62|0)[0-9]{9,12}$');
+
+  // ========================================
+  // EMAIL VALIDATOR
+  // ========================================
+  /// Validates email format
+  /// Returns error message or null if valid
   static String? email(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Email tidak boleh kosong';
-    }
-
-    final emailRegex = RegExp(
-      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-    );
-
-    if (!emailRegex.hasMatch(value)) {
-      return 'Format email tidak valid';
-    }
-
-    return null;
-  }
-
-  // Required field validator
-  static String? required(String? value, {String? fieldName}) {
     if (value == null || value.trim().isEmpty) {
-      return '${fieldName ?? 'Field'} tidak boleh kosong';
+      return AppStrings.fieldCanNotBeEmpty;
     }
+
+    if (!_emailRegex.hasMatch(value.trim())) {
+      return AppStrings.pleaseTypeCorrectEmail;
+    }
+
     return null;
   }
 
-  // Password validator
+  /// Validates email but allows empty (for real-time validation)
+  static String? emailOptional(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null; // Allow empty during typing
+    }
+
+    if (!_emailRegex.hasMatch(value.trim())) {
+      return AppStrings.pleaseTypeCorrectEmail;
+    }
+
+    return null;
+  }
+
+  // ========================================
+  // PASSWORD VALIDATORS
+  // ========================================
+  /// Validates password (required, min 6 chars)
   static String? password(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Password tidak boleh kosong';
+      return AppStrings.fieldCanNotBeEmpty;
     }
 
-    if (value.length < 6) {
-      return 'Password minimal 6 karakter';
+    if (value.length < minPasswordLength) {
+      return AppStrings.passwordMinLength;
     }
 
     return null;
   }
 
-  // Password confirmation validator
+  /// Validates password confirmation
   static String? passwordConfirmation(String? value, String? password) {
     if (value == null || value.isEmpty) {
-      return 'Konfirmasi password tidak boleh kosong';
+      return AppStrings.fieldCanNotBeEmpty;
     }
 
     if (value != password) {
-      return 'Password tidak cocok';
+      return AppStrings.passwordReDoesNotMatch;
     }
 
     return null;
   }
 
-  // Phone number validator (Indonesia format)
+  // ========================================
+  // NAME VALIDATOR
+  // ========================================
+  /// Validates name (required, min 3 chars, letters only)
+  static String? name(String? value, {String? fieldName}) {
+    if (value == null || value.trim().isEmpty) {
+      return AppStrings.fieldCanNotBeEmpty;
+    }
+
+    if (value.trim().length < minNameLength) {
+      return AppStrings.nameMinLength;
+    }
+
+    if (!_nameRegex.hasMatch(value.trim())) {
+      return AppStrings.nameOnlyLetters;
+    }
+
+    return null;
+  }
+
+  // ========================================
+  // REQUIRED FIELD VALIDATOR
+  // ========================================
+  /// Generic required field validator
+  static String? required(String? value, {String? fieldName}) {
+    if (value == null || value.trim().isEmpty) {
+      return AppStrings.fieldCanNotBeEmpty;
+    }
+    return null;
+  }
+
+  // ========================================
+  // PHONE NUMBER VALIDATOR
+  // ========================================
+  /// Validates Indonesian phone number format
   static String? phoneNumber(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Nomor telepon tidak boleh kosong';
+      return AppStrings.fieldCanNotBeEmpty;
     }
 
     // Remove spaces and dashes
     final cleanValue = value.replaceAll(RegExp(r'[\s-]'), '');
 
-    // Check if starts with +62, 62, or 0
-    final phoneRegex = RegExp(r'^(\+62|62|0)[0-9]{9,12}$');
-
-    if (!phoneRegex.hasMatch(cleanValue)) {
-      return 'Format nomor telepon tidak valid';
+    if (!_phoneRegex.hasMatch(cleanValue)) {
+      return AppStrings.invalidPhoneFormat;
     }
 
     return null;
   }
 
-  // Name validator (allow letters, spaces, and some special chars)
-  static String? name(String? value, {String? fieldName}) {
-    if (value == null || value.trim().isEmpty) {
-      return '${fieldName ?? 'Nama'} tidak boleh kosong';
-    }
-
-    if (value.trim().length < 2) {
-      return '${fieldName ?? 'Nama'} minimal 2 karakter';
-    }
-
-    // Allow letters (including Indonesian chars), spaces, apostrophes, and hyphens
-    final nameRegex = RegExp(r"^[a-zA-Z\s'\-]+$");
-
-    if (!nameRegex.hasMatch(value.trim())) {
-      return '${fieldName ?? 'Nama'} hanya boleh berisi huruf';
-    }
-
-    return null;
-  }
-
-  // Age validator
+  // ========================================
+  // NUMERIC VALIDATORS
+  // ========================================
+  /// Validates age (0-150)
   static String? age(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Usia tidak boleh kosong';
+      return AppStrings.fieldCanNotBeEmpty;
     }
 
     final age = int.tryParse(value);
-
     if (age == null) {
       return 'Usia harus berupa angka';
     }
@@ -108,34 +154,13 @@ class Validators {
     return null;
   }
 
-  // Date validator (for birth date)
-  static String? birthDate(DateTime? value) {
-    if (value == null) {
-      return 'Tanggal lahir tidak boleh kosong';
-    }
-
-    final now = DateTime.now();
-    final age = now.year - value.year;
-
-    if (value.isAfter(now)) {
-      return 'Tanggal lahir tidak valid';
-    }
-
-    if (age > 150) {
-      return 'Tanggal lahir tidak valid';
-    }
-
-    return null;
-  }
-
-  // Pregnancy week validator
+  /// Validates pregnancy week (1-42)
   static String? pregnancyWeek(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Minggu kehamilan tidak boleh kosong';
+      return AppStrings.fieldCanNotBeEmpty;
     }
 
     final week = int.tryParse(value);
-
     if (week == null) {
       return 'Minggu kehamilan harus berupa angka';
     }
@@ -147,14 +172,13 @@ class Validators {
     return null;
   }
 
-  // Weight validator (in kg)
+  /// Validates weight in kg (0-500)
   static String? weight(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Berat badan tidak boleh kosong';
+      return AppStrings.fieldCanNotBeEmpty;
     }
 
     final weight = double.tryParse(value);
-
     if (weight == null) {
       return 'Berat badan harus berupa angka';
     }
@@ -166,14 +190,13 @@ class Validators {
     return null;
   }
 
-  // Height validator (in cm)
+  /// Validates height in cm (0-300)
   static String? height(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Tinggi badan tidak boleh kosong';
+      return AppStrings.fieldCanNotBeEmpty;
     }
 
     final height = double.tryParse(value);
-
     if (height == null) {
       return 'Tinggi badan harus berupa angka';
     }
@@ -185,42 +208,73 @@ class Validators {
     return null;
   }
 
-  // General number validator
-  static String? number(String? value, {String? fieldName}) {
-    if (value == null || value.isEmpty) {
-      return '${fieldName ?? 'Field'} tidak boleh kosong';
+  // ========================================
+  // DATE VALIDATORS
+  // ========================================
+  /// Validates birth date
+  static String? birthDate(DateTime? value) {
+    if (value == null) {
+      return AppStrings.fieldCanNotBeEmpty;
     }
 
-    if (double.tryParse(value) == null) {
-      return '${fieldName ?? 'Field'} harus berupa angka';
+    final now = DateTime.now();
+
+    if (value.isAfter(now)) {
+      return 'Tanggal lahir tidak valid';
     }
 
-    return null;
-  }
-
-  // Min length validator
-  static String? minLength(String? value, int minLength, {String? fieldName}) {
-    if (value == null || value.isEmpty) {
-      return '${fieldName ?? 'Field'} tidak boleh kosong';
-    }
-
-    if (value.length < minLength) {
-      return '${fieldName ?? 'Field'} minimal $minLength karakter';
+    final age = now.year - value.year;
+    if (age > 150) {
+      return 'Tanggal lahir tidak valid';
     }
 
     return null;
   }
 
-  // Max length validator
-  static String? maxLength(String? value, int maxLength, {String? fieldName}) {
+  // ========================================
+  // LENGTH VALIDATORS
+  // ========================================
+  /// Validates minimum length
+  static String? minLength(String? value, int min, {String? fieldName}) {
     if (value == null || value.isEmpty) {
-      return '${fieldName ?? 'Field'} tidak boleh kosong';
+      return AppStrings.fieldCanNotBeEmpty;
     }
 
-    if (value.length > maxLength) {
-      return '${fieldName ?? 'Field'} maksimal $maxLength karakter';
+    if (value.length < min) {
+      return '${fieldName ?? 'Field'} minimal $min karakter';
     }
 
     return null;
+  }
+
+  /// Validates maximum length
+  static String? maxLength(String? value, int max, {String? fieldName}) {
+    if (value == null || value.isEmpty) {
+      return AppStrings.fieldCanNotBeEmpty;
+    }
+
+    if (value.length > max) {
+      return '${fieldName ?? 'Field'} maksimal $max karakter';
+    }
+
+    return null;
+  }
+
+  // ========================================
+  // HELPER METHODS
+  // ========================================
+  /// Check if email format is valid (without returning error message)
+  static bool isValidEmail(String email) {
+    return _emailRegex.hasMatch(email.trim());
+  }
+
+  /// Check if password meets requirements
+  static bool isValidPassword(String password) {
+    return password.length >= minPasswordLength;
+  }
+
+  /// Check if name meets requirements
+  static bool isValidName(String name) {
+    return name.trim().length >= minNameLength && _nameRegex.hasMatch(name.trim());
   }
 }

@@ -1,10 +1,21 @@
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../models/user_model.dart';
 
+/// ========================================
+/// AUTH SERVICE - Firebase Authentication
+/// Handles all authentication and user data operations
+/// ========================================
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
+
+  // ========================================
+  // GETTERS
+  // ========================================
 
   /// Get current Firebase user
   User? get currentUser => _auth.currentUser;
@@ -14,6 +25,10 @@ class AuthService {
 
   /// Stream of authentication state changes
   Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  // ========================================
+  // AUTHENTICATION METHODS
+  // ========================================
 
   /// Sign in with email and password
   Future<UserModel?> signInWithEmailAndPassword({
@@ -39,28 +54,43 @@ class AuthService {
   }
 
   /// Register with email and password
+  /// Optionally uploads profile image to Firebase Storage
   Future<UserModel?> registerWithEmailAndPassword({
     required String email,
     required String password,
     String? displayName,
+    File? profileImage,
   }) async {
     try {
+      // Create user account
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
 
       if (userCredential.user != null) {
-        // Update display name if provided
+        final uid = userCredential.user!.uid;
+        String? photoURL;
+
+        // Upload profile image if provided
+        if (profileImage != null) {
+          photoURL = await _uploadProfileImage(uid, profileImage);
+        }
+
+        // Update display name and photo URL in Firebase Auth
         if (displayName != null) {
           await userCredential.user!.updateDisplayName(displayName);
+        }
+        if (photoURL != null) {
+          await userCredential.user!.updatePhotoURL(photoURL);
         }
 
         // Create user document in Firestore
         final userModel = UserModel.fromFirebaseUser(
-          uid: userCredential.user!.uid,
+          uid: uid,
           email: email.trim(),
           displayName: displayName,
+          photoURL: photoURL,
         );
 
         await _createUserDocument(userModel);
@@ -96,6 +126,10 @@ class AuthService {
     }
   }
 
+  // ========================================
+  // PROFILE UPDATE METHODS
+  // ========================================
+
   /// Update user profile (display name and photo URL)
   Future<void> updateProfile({
     String? displayName,
@@ -119,13 +153,34 @@ class AuthService {
     }
   }
 
+  /// Update profile with new image file
+  Future<String?> updateProfileImage(File imageFile) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) throw 'User tidak ditemukan';
+
+      // Upload new image
+      final photoURL = await _uploadProfileImage(user.uid, imageFile);
+
+      // Update Firebase Auth profile
+      await user.updatePhotoURL(photoURL);
+
+      // Update Firestore document
+      await updateUserData(user.uid, {'photoURL': photoURL});
+
+      return photoURL;
+    } catch (e) {
+      throw 'Gagal memperbarui foto profil.';
+    }
+  }
+
   /// Update email
   Future<void> updateEmail(String newEmail) async {
     try {
       final user = _auth.currentUser;
       if (user == null) throw 'User tidak ditemukan';
 
-      await user.updateEmail(newEmail.trim());
+      await user.verifyBeforeUpdateEmail(newEmail.trim());
       await user.reload();
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
@@ -173,6 +228,13 @@ class AuthService {
       final user = _auth.currentUser;
       if (user == null) throw 'User tidak ditemukan';
 
+      // Delete profile image from storage
+      try {
+        await _storage.ref('profile_images/${user.uid}').delete();
+      } catch (_) {
+        // Ignore if image doesn't exist
+      }
+
       // Delete user document from Firestore
       await _firestore.collection('users').doc(user.uid).delete();
 
@@ -184,6 +246,10 @@ class AuthService {
       throw 'Gagal menghapus akun.';
     }
   }
+
+  // ========================================
+  // FIRESTORE DATA METHODS
+  // ========================================
 
   /// Get user data from Firestore
   Future<UserModel?> getUserData(String uid) async {
@@ -238,6 +304,34 @@ class AuthService {
       return false;
     }
   }
+
+  // ========================================
+  // STORAGE METHODS
+  // ========================================
+
+  /// Upload profile image to Firebase Storage
+  /// Returns the download URL
+  Future<String> _uploadProfileImage(String uid, File imageFile) async {
+    try {
+      final ref = _storage.ref('profile_images/$uid');
+
+      // Upload file with metadata
+      final uploadTask = await ref.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+
+      // Get download URL
+      final downloadURL = await uploadTask.ref.getDownloadURL();
+      return downloadURL;
+    } catch (e) {
+      throw 'Gagal mengupload foto profil.';
+    }
+  }
+
+  // ========================================
+  // ERROR HANDLING
+  // ========================================
 
   /// Handle Firebase Auth exceptions and return user-friendly messages
   String _handleAuthException(FirebaseAuthException e) {

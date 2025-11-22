@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
@@ -97,10 +98,12 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   /// Register with email and password
+  /// Optionally includes profile image
   Future<bool> register({
     required String email,
     required String password,
     String? displayName,
+    File? profileImage,
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
@@ -109,6 +112,7 @@ class AuthController extends StateNotifier<AuthState> {
         email: email,
         password: password,
         displayName: displayName,
+        profileImage: profileImage,
       );
 
       if (user != null) {

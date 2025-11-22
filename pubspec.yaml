@@ -33,6 +33,7 @@ dependencies:
   firebase_auth: ^4.16.0
   cloud_firestore: ^4.13.0
   firebase_messaging: ^14.7.0
+  firebase_storage: ^11.6.0
 
   # UI & Utils
   cupertino_icons: ^1.0.6
@@ -40,6 +41,8 @@ dependencies:
   fluttertoast: ^8.2.4
   shared_preferences: ^2.2.2
   equatable: ^2.0.5
+  image_picker: ^1.0.7
+  flutter_svg: ^2.0.9
 
 dev_dependencies:
   flutter_test:
